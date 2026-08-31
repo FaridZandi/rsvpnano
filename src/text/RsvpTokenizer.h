@@ -31,7 +31,10 @@ namespace RsvpText {
     namespace Detail {
 
         bool isWordBoundary(char c);
-        bool isInlineWordHyphen(std::string_view text, size_t index);
+        bool dashAt(std::string_view text, size_t index, uint32_t& codepoint, size_t& length);
+        bool isInlineWordDash(std::string_view text, size_t index, size_t length);
+        size_t closingPunctuationEnd(std::string_view text, size_t index);
+        bool isDashToken(std::string_view token);
         bool endsCjkPhrase(uint32_t codepoint);
 
     } // namespace Detail
@@ -75,11 +78,11 @@ namespace RsvpText {
                 return true;
             }
 
-            if (token == "-") {
+            if (Detail::isDashToken(token)) {
                 if (!flushPending()) {
                     return false;
                 }
-                if (!consumeToken("-")) {
+                if (!consumeToken(std::string{token})) {
                     return false;
                 }
                 return withinWordLimit();
@@ -147,17 +150,30 @@ namespace RsvpText {
                 continue;
             }
 
-            if (c == '-') {
-                if (Detail::isInlineWordHyphen(normalizedLine, i)) {
-                    currentWord += c;
+            uint32_t dash = 0;
+            size_t dashLength = 0;
+            if (Detail::dashAt(normalizedLine, i, dash, dashLength)) {
+                // Joining dashes hold a compound together; separating dashes never do.
+                if (UnicodeText::isJoiningDash(dash) && Detail::isInlineWordDash(normalizedLine, i, dashLength)) {
+                    currentWord.append(normalizedLine.substr(i, dashLength));
+                    i += dashLength - 1;
                     continue;
                 }
-                if (!flushCurrent() || !finishToken("-")) {
+                // Collapse a run of dashes into one token, then keep any closing quote or
+                // bracket with it so the punctuation never becomes a word of its own.
+                size_t after = i + dashLength;
+                uint32_t runDash = 0;
+                size_t runLength = 0;
+                while (Detail::dashAt(normalizedLine, after, runDash, runLength)) {
+                    after += runLength;
+                }
+                const size_t tokenEnd = Detail::closingPunctuationEnd(normalizedLine, after);
+                std::string dashToken{normalizedLine.substr(i, dashLength)};
+                dashToken.append(normalizedLine.substr(after, tokenEnd - after));
+                if (!flushCurrent() || !finishToken(std::move(dashToken))) {
                     return false;
                 }
-                while (i + 1 < normalizedLine.length() && normalizedLine[i + 1] == '-') {
-                    ++i;
-                }
+                i = tokenEnd - 1;
                 continue;
             }
 

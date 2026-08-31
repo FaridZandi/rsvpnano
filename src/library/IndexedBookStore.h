@@ -52,7 +52,8 @@ public:
     };
 
     static constexpr uint32_t kMagic = 0x58444952UL; // RIDX
-    static constexpr uint32_t kVersion = 12;
+    // 13 rebuilds indexes written before dashes became their own words.
+    static constexpr uint32_t kVersion = 13;
     static constexpr size_t kWordCacheSize = 256;
 
     IndexedBookStore() = default;

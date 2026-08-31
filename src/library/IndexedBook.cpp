@@ -505,7 +505,8 @@ namespace IndexedBook {
     }
 
     bool Builder::pushWord(std::string token) {
-        if (token.empty() || (!RsvpText::hasReadableText(token) && token != "-"))
+        // Dashes carry no letters but are read as words, so they survive the readability filter.
+        if (token.empty() || (!RsvpText::hasReadableText(token) && !RsvpText::Detail::isDashToken(token)))
             return true;
         if (token.size() > UINT16_MAX || dataSize_ > UINT32_MAX - static_cast<uint32_t>(token.size())) {
             fail(std::make_error_code(std::errc::value_too_large), "Index limit reached");

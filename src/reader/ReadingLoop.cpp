@@ -452,18 +452,17 @@ namespace {
 
     bool isSegmentSeparator(uint32_t codepoint) {
         switch (codepoint) {
-        case '-':
         case '/':
         case '_':
             return true;
         default:
-            return false;
+            // Only joining dashes reach here; separating dashes are their own word.
+            return UnicodeText::isJoiningDash(codepoint);
         }
     }
 
     bool isTechnicalConnector(uint32_t codepoint) {
         switch (codepoint) {
-        case '-':
         case '/':
         case '_':
         case '.':
@@ -471,7 +470,7 @@ namespace {
         case '\\':
             return true;
         default:
-            return false;
+            return UnicodeText::isJoiningDash(codepoint);
         }
     }
 
@@ -601,7 +600,8 @@ namespace {
             case 0xFF1FU:
                 return '?';
             default:
-                return codepoint;
+                // Every dash reads with the same rhythm as an ASCII hyphen.
+                return UnicodeText::isDash(codepoint) ? '-' : codepoint;
             }
         }
         return 0;

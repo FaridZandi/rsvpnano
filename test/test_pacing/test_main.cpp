@@ -146,6 +146,16 @@ void test_standalone_dash_pause(void) {
     TEST_ASSERT_EQUAL(320u, duration(300, "-", "the"));
 }
 
+void test_standalone_em_dash_pause(void) {
+    // An em dash reads with the same rhythm as an ASCII hyphen.
+    TEST_ASSERT_EQUAL(320u, duration(300, "—", "the"));
+}
+
+void test_em_dash_with_closing_quote_pause(void) {
+    // Interrupted dialogue keeps its closing quote; the dash still sets the rhythm.
+    TEST_ASSERT_EQUAL(320u, duration(300, "—”", "he"));
+}
+
 void test_ellipsis_pause(void) {
     // "and..." → ellipsis +110% → 200 + 220 = 420
     TEST_ASSERT_EQUAL(420u, duration(300, "and...", "then"));
@@ -298,6 +308,86 @@ void test_cjk_tokenizer_emits_small_punctuation_aware_phrases(void) {
 
     ReadingSession r = makeReader(300, std::move(tokens));
     TEST_ASSERT_EQUAL_STRING("吾輩は猫である。名前はまだ無い。", ReadingLoop::paragraphAt(r, 0).text.c_str());
+}
+
+static std::vector<std::string> tokenize(const char* line) {
+    std::vector<std::string> tokens;
+    size_t count = 0;
+    RsvpText::appendLineWords(
+        line,
+        [&](const std::string& token) {
+            tokens.push_back(token);
+            ++count;
+            return true;
+        },
+        count, nullptr);
+    return tokens;
+}
+
+void test_em_dash_separates_words(void) {
+    // A tight-set em dash is a clause break, so it must not glue its neighbours
+    // into one unreadable token.
+    const std::vector<std::string> expected = {"alpha", "—", "beta", "gamma", "—", "delta"};
+    TEST_ASSERT_TRUE(tokenize("alpha—beta gamma—delta") == expected);
+}
+
+void test_em_dash_variants_separate_words(void) {
+    const std::vector<std::string> horizontalBar = {"alpha", "―", "beta"};
+    TEST_ASSERT_TRUE(tokenize("alpha―beta") == horizontalBar);
+
+    // A trailing dash detaches instead of riding along on the previous word.
+    const std::vector<std::string> trailing = {"wait", "—", "then"};
+    TEST_ASSERT_TRUE(tokenize("wait— then") == trailing);
+
+    // A run of mixed dashes collapses into the single token already emitted.
+    const std::vector<std::string> run = {"alpha", "—", "beta"};
+    TEST_ASSERT_TRUE(tokenize("alpha—-beta") == run);
+}
+
+void test_em_dash_keeps_closing_quote(void) {
+    // Interrupted dialogue must not leave the closing quote as a word of its own.
+    const std::vector<std::string> expected = {"“stop", "—”", "he", "said"};
+    TEST_ASSERT_TRUE(tokenize("“stop—” he said") == expected);
+}
+
+void test_joining_dashes_keep_compounds_together(void) {
+    const std::vector<std::string> ascii = {"well-known", "thing"};
+    TEST_ASSERT_TRUE(tokenize("well-known thing") == ascii);
+
+    // U+2010 HYPHEN behaves like the ASCII hyphen it stands in for.
+    const std::vector<std::string> unicodeHyphen = {"well‐known", "thing"};
+    TEST_ASSERT_TRUE(tokenize("well‐known thing") == unicodeHyphen);
+
+    // An en dash joins so numeric ranges survive as one word.
+    const std::vector<std::string> range = {"1914–1918"};
+    TEST_ASSERT_TRUE(tokenize("1914–1918") == range);
+}
+
+void test_ascii_double_hyphen_still_separates(void) {
+    const std::vector<std::string> expected = {"alpha", "-", "beta"};
+    TEST_ASSERT_TRUE(tokenize("alpha--beta") == expected);
+    TEST_ASSERT_TRUE(tokenize("alpha---beta") == expected);
+}
+
+void test_dash_tokens_survive_the_readability_filter(void) {
+    // The index builder drops tokens with no letters or digits unless they are dashes.
+    // Anything this rejects disappears from the reader entirely.
+    TEST_ASSERT_FALSE(RsvpText::hasReadableText("—"));
+    TEST_ASSERT_TRUE(RsvpText::Detail::isDashToken("-"));
+    TEST_ASSERT_TRUE(RsvpText::Detail::isDashToken("—"));
+    TEST_ASSERT_TRUE(RsvpText::Detail::isDashToken("―"));
+    TEST_ASSERT_TRUE(RsvpText::Detail::isDashToken("—”"));
+
+    // Punctuation that is not a dash stays filtered out.
+    TEST_ASSERT_FALSE(RsvpText::Detail::isDashToken("”"));
+    TEST_ASSERT_FALSE(RsvpText::Detail::isDashToken("..."));
+    TEST_ASSERT_FALSE(RsvpText::Detail::isDashToken("—a"));
+    TEST_ASSERT_FALSE(RsvpText::Detail::isDashToken(""));
+}
+
+void test_unicode_hyphen_counts_as_compound_connector(void) {
+    // "well‐known" with U+2010 must be timed exactly like its ASCII spelling.
+    TEST_ASSERT_EQUAL(duration(300, "well-known", "and"), duration(300, "well‐known", "and"));
 }
 
 void test_very_long_word_extra_tier(void) {
@@ -502,6 +592,8 @@ int main(void) {
     RUN_TEST(test_clause_pause_semicolon);
     RUN_TEST(test_dash_pause);
     RUN_TEST(test_standalone_dash_pause);
+    RUN_TEST(test_standalone_em_dash_pause);
+    RUN_TEST(test_em_dash_with_closing_quote_pause);
     RUN_TEST(test_ellipsis_pause);
 
     RUN_TEST(test_known_abbreviation_no_pause);
@@ -523,6 +615,13 @@ int main(void) {
     RUN_TEST(test_hungarian_double_acute_vowel_affects_syllable_bonus);
     RUN_TEST(test_sami_custom_letter_counts_as_readable);
     RUN_TEST(test_unicode_classification_covers_supported_scripts);
+    RUN_TEST(test_em_dash_separates_words);
+    RUN_TEST(test_em_dash_variants_separate_words);
+    RUN_TEST(test_em_dash_keeps_closing_quote);
+    RUN_TEST(test_joining_dashes_keep_compounds_together);
+    RUN_TEST(test_ascii_double_hyphen_still_separates);
+    RUN_TEST(test_dash_tokens_survive_the_readability_filter);
+    RUN_TEST(test_unicode_hyphen_counts_as_compound_connector);
     RUN_TEST(test_very_long_word_extra_tier);
     RUN_TEST(test_compound_word_bonus);
     RUN_TEST(test_all_caps_complexity);
