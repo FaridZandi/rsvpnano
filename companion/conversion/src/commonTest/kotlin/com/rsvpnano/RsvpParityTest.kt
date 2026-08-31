@@ -48,6 +48,30 @@ class RsvpParityTest {
     }
 
     @Test
+    fun clauseBreakingDashesSurviveAsSeparateWords() {
+        // A single hyphen would read as a compound on the device and glue the
+        // surrounding words into one unreadable token.
+        val text = RsvpConverter.readableText(
+            """
+            <html><body><p>something&mdash;something else&#8212;more</p></body></html>
+            """.trimIndent()
+        )
+
+        assertEquals("something--something else--more", text)
+    }
+
+    @Test
+    fun compoundDashesStayJoined() {
+        val text = RsvpConverter.readableText(
+            """
+            <html><body><p>well&#8208;known from 1914&ndash;1918</p></body></html>
+            """.trimIndent()
+        )
+
+        assertEquals("well-known from 1914-1918", text)
+    }
+
+    @Test
     fun rsvpFileBuildsDeterministicBody() {
         val file = RsvpConverter.rsvpFile(
             title = "Demo Book",

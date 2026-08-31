@@ -19,8 +19,12 @@ internal object RsvpTextUtils {
         '\u201f' to "\"", '\u00ab' to "\"", '\u00bb' to "\"", '\u2039' to "'",
         '\u203a' to "'", '\u2033' to "\"", '\u2036' to "\"", '\u300c' to "\"",
         '\u300d' to "\"", '\u300e' to "\"", '\u300f' to "\"", '\u2010' to "-",
-        '\u2011' to "-", '\u2012' to "-", '\u2013' to "-", '\u2014' to "-",
-        '\u2015' to "-", '\u2043' to "-", '\u2212' to "-", '\u2026' to "...",
+        '\u2011' to "-", '\u2012' to "-", '\u2013' to "-", '\u2043' to "-",
+        '\u2212' to "-", '\u2026' to "...",
+        // Clause-breaking dashes fold to a double hyphen, which the reader splits into
+        // its own word. A single hyphen would read as a compound and glue the
+        // surrounding words into one unreadable token.
+        '\u2014' to "--", '\u2015' to "--", '\u2e3a' to "--", '\u2e3b' to "--",
         '\u2022' to "*", '\u00b7' to "*", '\u2219' to "*", '\u00a9' to "(c)",
         '\u00ae' to "(r)", '\u2122' to "TM", '\ufb00' to "ff", '\ufb01' to "fi",
         '\ufb02' to "fl", '\ufb03' to "ffi", '\ufb04' to "ffl", '\ufb05' to "st",
@@ -235,7 +239,7 @@ internal object RsvpTextUtils {
             "&lsquo;" to "'",
             "&rsquo;" to "'",
             "&ndash;" to "-",
-            "&mdash;" to "-",
+            "&mdash;" to "--",
             "&hellip;" to "...",
         ).forEach { (entity, replacement) ->
             text = text.replace(entity, replacement)

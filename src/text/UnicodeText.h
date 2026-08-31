@@ -189,6 +189,53 @@ namespace UnicodeText {
         return isLetter(codepoint) || isDigit(codepoint);
     }
 
+    // Dashes that join two word characters into one compound, as in "well-known".
+    // They only separate words when they are not sitting between word characters.
+    constexpr bool isJoiningDash(uint32_t codepoint) {
+        switch (codepoint) {
+        case '-':
+        case 0x2010U: // HYPHEN
+        case 0x2011U: // NON-BREAKING HYPHEN
+        case 0x2012U: // FIGURE DASH
+        case 0x2013U: // EN DASH, kept joining so ranges such as "1914-1918" stay one word
+        case 0x2212U: // MINUS SIGN
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    // Dashes that always break a clause, so they read as their own word.
+    constexpr bool isSeparatingDash(uint32_t codepoint) {
+        switch (codepoint) {
+        case 0x2014U: // EM DASH
+        case 0x2015U: // HORIZONTAL BAR
+        case 0x2E3AU: // TWO-EM DASH
+        case 0x2E3BU: // THREE-EM DASH
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    constexpr bool isDash(uint32_t codepoint) {
+        return isJoiningDash(codepoint) || isSeparatingDash(codepoint);
+    }
+
+    // Closing quotes and brackets, which trail the text they belong to and never
+    // carry enough meaning to stand as a word of their own.
+    inline bool isClosingPunctuation(uint32_t codepoint) {
+        if (codepoint == '"' || codepoint == '\'')
+            return true;
+        switch (generalCategory(codepoint)) {
+        case HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION:
+        case HB_UNICODE_GENERAL_CATEGORY_FINAL_PUNCTUATION:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     inline bool isCjkText(std::string_view text) {
         bool found = false;
         uint32_t codepoint = 0;
